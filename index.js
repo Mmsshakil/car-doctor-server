@@ -1,7 +1,9 @@
 const express = require('express');
 const cors = require('cors');
 const app = express();
+const jwt = require('jsonwebtoken');
 const port = process.env.PORT || 3000;
+const cookieParser = require('cookie-parser');
 const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
 require('dotenv').config()
 
@@ -9,7 +11,12 @@ require('dotenv').config()
 // middleware
 app.use(express());
 app.use(express.json());
-app.use(cors());
+app.use(cookieParser());
+
+app.use(cors({
+    origin: ['http://localhost:5173' ],
+    credentials: true
+}));
 
 // ------mongo start-----------------------
 
@@ -34,6 +41,23 @@ async function run() {
 
         const serviceCollection = client.db('carDoctor').collection('services');
         const bookingCollection = client.db('carDoctor').collection('bookings');
+
+        // auth related api
+        app.post('/jwt', async(req, res) =>{
+            const user = req.body;
+            console.log(user);
+            const token = jwt.sign(user, process.env.ACCESS_TOKEN_SECRET, {expiresIn: '1h'})
+
+            res
+            .cookie('token', token, {
+                httpOnly: true,
+                secure: false
+            })
+            .send({success: true})
+        })
+
+
+        // services related api
 
         app.get('/services', async (req, res) => {
             const cursor = serviceCollection.find();
@@ -65,8 +89,8 @@ async function run() {
 
         // get all booking data
         app.get('/bookings', async (req, res) => {
+            console.log('Tok Token', req.cookies.token);
             let query = {};
-
             if (req.query?.email) {
                 query = { email: req.query.email }
             }
